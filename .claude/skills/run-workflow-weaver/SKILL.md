@@ -47,7 +47,7 @@ The CLI automatically reads `WORKFLOW_WEAVER_REFRESH_TOKEN` from the environment
 | No hardcoded credentials | Never embed tokens, passwords, or keys in scripts, logs, or skill files |
 | Refresh token via env var only | `WORKFLOW_WEAVER_REFRESH_TOKEN` — never interpolate into log lines or `echo` |
 | Supabase credentials via env var only | `WORKFLOW_WEAVER_SUPABASE_URL` and `WORKFLOW_WEAVER_SUPABASE_KEY` — never in scripts |
-| Config file path | `~/.workflow-weaver/config.json` (chmod 600) — document but never read in scripts |
+| Config file path | `~/.workflow-weaver/config.json` (chmod 600) — document but never read directly in automation scripts; one-time setup extraction is acceptable |
 | Stripe/billing URLs | Present to the user to open in a browser — never open programmatically |
 | Smoke placeholder | Use clearly-named placeholders like `smoke-test-invalid-token`, never real-looking values |
 
@@ -92,10 +92,12 @@ workflow-weaver sources add "$PROJECT_ID" \
   --json
 
 # 5. Generate (streams progress events as NDJSON, final line is the completed version)
-workflow-weaver generate "$PROJECT_ID" --json
+GENERATE_OUTPUT=$(workflow-weaver generate "$PROJECT_ID" --json)
+echo "$GENERATE_OUTPUT" | tail -1
+VERSION_ID=$(echo "$GENERATE_OUTPUT" | tail -1 | jq -r '.versionId // .id')
 
 # 6. Export
-workflow-weaver export "$PROJECT_ID" <version-id> --format md
+workflow-weaver export "$PROJECT_ID" "$VERSION_ID" --format md
 ```
 
 ### Error handling for agents

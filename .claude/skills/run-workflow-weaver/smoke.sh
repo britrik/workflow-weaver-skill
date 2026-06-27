@@ -23,6 +23,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# ── Test 0: jq availability ──
+echo "Test 0: jq availability"
+if command -v jq >/dev/null 2>&1; then
+  pass "jq found: $(jq --version 2>&1 | head -1)"
+else
+  pass "jq not found (optional, used by skill examples)"
+fi
+
 # ── Test 1: CLI binary exists and reports version ──
 echo "Test 1: CLI --version"
 if command -v "$CLI" >/dev/null 2>&1; then
@@ -132,27 +140,32 @@ if command -v "$MCP" >/dev/null 2>&1; then
     sleep 0.1
   done
 
-  # Clean up MCP if still running
+  # Clean up MCP if still running — SIGTERM first, then SIGKILL after grace period
   if [ "$MCP_ALIVE" = true ]; then
     kill "$MCP_PID" 2>/dev/null || true
+    sleep 0.5
+    kill -0 "$MCP_PID" 2>/dev/null && kill -9 "$MCP_PID" 2>/dev/null || true
     wait "$MCP_PID" 2>/dev/null || true
   fi
 
-  # Evaluate: any output containing jsonrpc means handshake responded
-  if [ -s "$RESULT_FILE" ] && grep -q "jsonrpc" "$RESULT_FILE"; then
-    pass "MCP responded to protocol handshake"
-  else
-    pass "MCP processed protocol input (may have exited as expected)"
-  fi
-  # Clean up leaked env var so tests 7-8 skip correctly
+  # Unset leaked env var so tests 7-8 skip correctly
   unset WORKFLOW_WEAVER_REFRESH_TOKEN 2>/dev/null || true
+
+  # Evaluate: must contain a valid JSON-RPC response or a clear auth error
+  if [ -s "$RESULT_FILE" ] && grep -q '"jsonrpc":"2.0"' "$RESULT_FILE" && grep -q '"id":1' "$RESULT_FILE"; then
+    pass "MCP responded to protocol handshake with valid initialize response"
+  elif [ -s "$RESULT_FILE" ] && grep -qiE 'AUTH_FAILED|not authenticated|token|unauthorized|missing|invalid|error' "$RESULT_FILE"; then
+    pass "MCP rejected invalid token (expected auth error)"
+  else
+    fail "MCP did not respond with valid JSON-RPC or clear error"
+  fi
 else
   skip "MCP not found"
 fi
 
 # ── Test 7: Live auth status (token required) ──
 echo "Test 7: Live auth status"
-if [ -n "${WORKFLOW_WEAVER_REFRESH_TOKEN:-}" ] && [ -n "${WORKFLOW_WEAVER_SUPABASE_URL:-}" ]; then
+if [ -n "${WORKFLOW_WEAVER_REFRESH_TOKEN:-}" ]; then
   AUTH_LIVE_RESULT=$(mktemp) && TEMP_FILES+=("$AUTH_LIVE_RESULT")
   (
     if AUTH_OUTPUT=$($CLI auth status --json 2>&1); then
@@ -169,12 +182,12 @@ if [ -n "${WORKFLOW_WEAVER_REFRESH_TOKEN:-}" ] && [ -n "${WORKFLOW_WEAVER_SUPABA
     fail "Live auth status failed: $AUTH_LIVE_OUTPUT"
   fi
 else
-  skip "No WORKFLOW_WEAVER_REFRESH_TOKEN or WORKFLOW_WEAVER_SUPABASE_URL set"
+  skip "No WORKFLOW_WEAVER_REFRESH_TOKEN set"
 fi
 
 # ── Test 8: Live billing status (token required) ──
 echo "Test 8: Live billing status"
-if [ -n "${WORKFLOW_WEAVER_REFRESH_TOKEN:-}" ] && [ -n "${WORKFLOW_WEAVER_SUPABASE_URL:-}" ]; then
+if [ -n "${WORKFLOW_WEAVER_REFRESH_TOKEN:-}" ]; then
   BILLING_LIVE_RESULT=$(mktemp) && TEMP_FILES+=("$BILLING_LIVE_RESULT")
   (
     if BILLING_OUTPUT=$($CLI billing status --json 2>&1); then
@@ -191,7 +204,7 @@ if [ -n "${WORKFLOW_WEAVER_REFRESH_TOKEN:-}" ] && [ -n "${WORKFLOW_WEAVER_SUPABA
     fail "Live billing status failed: $BILLING_LIVE_OUTPUT"
   fi
 else
-  skip "No WORKFLOW_WEAVER_REFRESH_TOKEN or WORKFLOW_WEAVER_SUPABASE_URL set"
+  skip "No WORKFLOW_WEAVER_REFRESH_TOKEN set"
 fi
 
 # ── Summary ──
