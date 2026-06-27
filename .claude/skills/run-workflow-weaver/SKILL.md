@@ -1,6 +1,6 @@
 ---
 name: run-workflow-weaver
-description: Run, drive, and interact with workflow-weaver CLI and MCP server agentically. Use when asked to start workflow-weaver, use the CLI, run the MCP server, generate a workflow, create a project, test the CLI, or screenshot the tool.
+description: Run, drive, and interact with workflow-weaver CLI and MCP server agentically. Use when asked to start workflow-weaver, use the CLI, run the MCP server, generate a workflow, create a project, test the CLI, or export a workflow diagram.
 ---
 
 # run-workflow-weaver
@@ -21,8 +21,8 @@ Agent skill for driving the [workflow-weaver](https://www.npmjs.com/package/work
 
 ```bash
 workflow-weaver auth login --email you@example.com
-# Password is prompted interactively — never pass --password
-```
+# Password is prompted interactively — omit --password to avoid exposing it in shell history
+***
 
 **Non-interactive (agents / CI):**
 
@@ -35,14 +35,10 @@ node -e "process.stdout.write(require(require('os').homedir()+'/.workflow-weaver
 Then set it in the agent's environment:
 
 ```bash
-export WORKFLOW_WEAVER_REFRESH_TOKEN=<token>
+export WORKFLOW_WEAVER_REFRESH_TOKEN=***
 ```
 
-The CLI also accepts `WORKFLOW_WEAVER_TOKEN` for direct override. When `WORKFLOW_WEAVER_REFRESH_TOKEN` is available, map it before CLI calls:
-
-```bash
-WORKFLOW_WEAVER_TOKEN=$WORKFLOW_WEAVER_REFRESH_TOKEN workflow-weaver auth status --json
-```
+The CLI automatically reads `WORKFLOW_WEAVER_REFRESH_TOKEN` from the environment. No prefix mapping is needed.
 
 ## Security
 
@@ -50,6 +46,7 @@ WORKFLOW_WEAVER_TOKEN=$WORKFLOW_WEAVER_REFRESH_TOKEN workflow-weaver auth status
 |------|--------|
 | No hardcoded credentials | Never embed tokens, passwords, or keys in scripts, logs, or skill files |
 | Refresh token via env var only | `WORKFLOW_WEAVER_REFRESH_TOKEN` — never interpolate into log lines or `echo` |
+| Supabase credentials via env var only | `WORKFLOW_WEAVER_SUPABASE_URL` and `WORKFLOW_WEAVER_SUPABASE_KEY` — never in scripts |
 | Config file path | `~/.workflow-weaver/config.json` (chmod 600) — document but never read in scripts |
 | Stripe/billing URLs | Present to the user to open in a browser — never open programmatically |
 | Smoke placeholder | Use clearly-named placeholders like `smoke-test-invalid-token`, never real-looking values |
@@ -76,29 +73,29 @@ workflow-weaver <command> [args] --json
 
 ```bash
 # 1. Verify credentials
-WORKFLOW_WEAVER_TOKEN=$WORKFLOW_WEAVER_REFRESH_TOKEN workflow-weaver auth status --json
+workflow-weaver auth status --json
 
 # 2. Check quota before generating
-WORKFLOW_WEAVER_TOKEN=$WORKFLOW_WEAVER_REFRESH_TOKEN workflow-weaver billing status --json
+workflow-weaver billing status --json
 
 # 3. Create a project
-PROJECT=$(WORKFLOW_WEAVER_TOKEN=$WORKFLOW_WEAVER_REFRESH_TOKEN workflow-weaver projects create \
+PROJECT=$(workflow-weaver projects create \
   --title "Stripe Guide" \
   --use-case "Payment integration" \
   --json)
 PROJECT_ID=$(echo "$PROJECT" | jq -r '.id')
 
 # 4. Add a source
-WORKFLOW_WEAVER_TOKEN=$WORKFLOW_WEAVER_REFRESH_TOKEN workflow-weaver sources add "$PROJECT_ID" \
+workflow-weaver sources add "$PROJECT_ID" \
   --type snippet \
   --content "GET /users" \
   --json
 
 # 5. Generate (streams progress events as NDJSON, final line is the completed version)
-WORKFLOW_WEAVER_TOKEN=$WORKFLOW_WEAVER_REFRESH_TOKEN workflow-weaver generate "$PROJECT_ID" --json
+workflow-weaver generate "$PROJECT_ID" --json
 
 # 6. Export
-WORKFLOW_WEAVER_TOKEN=$WORKFLOW_WEAVER_REFRESH_TOKEN workflow-weaver export "$PROJECT_ID" <version-id> --format md
+workflow-weaver export "$PROJECT_ID" <version-id> --format md
 ```
 
 ### Error handling for agents
@@ -125,11 +122,14 @@ If `byok_active: true`, generation is unlimited regardless of plan or credits.
 
 The refresh token in `~/.workflow-weaver/config.json` may be rotated (invalidated and replaced) by the server. **Never cache the token by reading the config file directly.**
 
-- Always pass the token via `WORKFLOW_WEAVER_REFRESH_TOKEN` (or `WORKFLOW_WEAVER_TOKEN`) env var
+- Always pass the token via `WORKFLOW_WEAVER_REFRESH_TOKEN` env var
 - If you must read from config, re-read before every operation — do not cache
 - The CLI handles token refresh internally; let it read from its config file
+- When using the env var, each CLI call may rotate the token server-side. The CLI writes the new token to `~/.workflow-weaver/config.json`, but the env var still holds the old value. For long-running agent sessions, prefer letting the CLI read from its config file rather than setting the env var persistently
 
 ## MCP Server Configuration
+
+The MCP server requires **three** env vars: `WORKFLOW_WEAVER_REFRESH_TOKEN`, `WORKFLOW_WEAVER_SUPABASE_URL`, and `WORKFLOW_WEAVER_SUPABASE_KEY`.
 
 ### Claude Desktop
 
@@ -142,7 +142,9 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
       "command": "npx",
       "args": ["@workflow-weaver/mcp@latest"],
       "env": {
-        "WORKFLOW_WEAVER_TOKEN": "{{WORKFLOW_WEAVER_REFRESH_TOKEN}}"
+        "WORKFLOW_WEAVER_REFRESH_TOKEN": "***",
+        "WORKFLOW_WEAVER_SUPABASE_URL": "***",
+        "WORKFLOW_WEAVER_SUPABASE_KEY": "***"
       }
     }
   }
@@ -160,7 +162,9 @@ Edit `.cursor/mcp.json` in your project root (or `~/.cursor/mcp.json` globally):
       "command": "npx",
       "args": ["@workflow-weaver/mcp@latest"],
       "env": {
-        "WORKFLOW_WEAVER_TOKEN": "{{WORKFLOW_WEAVER_REFRESH_TOKEN}}"
+        "WORKFLOW_WEAVER_REFRESH_TOKEN": "***",
+        "WORKFLOW_WEAVER_SUPABASE_URL": "***",
+        "WORKFLOW_WEAVER_SUPABASE_KEY": "***"
       }
     }
   }
@@ -178,7 +182,9 @@ Edit `.kiro/settings/mcp.json` in your workspace:
       "command": "npx",
       "args": ["@workflow-weaver/mcp@latest"],
       "env": {
-        "WORKFLOW_WEAVER_TOKEN": "{{WORKFLOW_WEAVER_REFRESH_TOKEN}}"
+        "WORKFLOW_WEAVER_REFRESH_TOKEN": "***",
+        "WORKFLOW_WEAVER_SUPABASE_URL": "***",
+        "WORKFLOW_WEAVER_SUPABASE_KEY": "***"
       },
       "disabled": false,
       "autoApprove": []
@@ -186,6 +192,8 @@ Edit `.kiro/settings/mcp.json` in your workspace:
   }
 }
 ```
+
+> **Note:** If you installed `@workflow-weaver/mcp` globally, you can also use the `workflow-weaver-mcp` binary directly instead of `npx`.
 
 ## MCP Tools (23)
 
@@ -233,10 +241,10 @@ Run offline checks (no token required):
 bash .claude/skills/run-workflow-weaver/smoke.sh
 ```
 
-Run with a live token:
+Run with live credentials:
 
 ```bash
-WORKFLOW_WEAVER_REFRESH_TOKEN=<token> bash .claude/skills/run-workflow-weaver/smoke.sh
+WORKFLOW_WEAVER_REFRESH_TOKEN=*** bash .claude/skills/run-workflow-weaver/smoke.sh
 ```
 
 ## Global Flags
@@ -245,15 +253,15 @@ WORKFLOW_WEAVER_REFRESH_TOKEN=<token> bash .claude/skills/run-workflow-weaver/sm
 |------|-------------|
 | `--json` | Output as newline-delimited JSON (NDJSON) |
 | `--quiet` | Suppress all non-error output |
-| `--api-url <url>` | Override the API base URL |
+| `--api-url <url>` | Override the Supabase URL |
 | `--version` | Print CLI version |
 
 ## Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `WORKFLOW_WEAVER_REFRESH_TOKEN` | Refresh token for agent use (maps to `WORKFLOW_WEAVER_TOKEN` for CLI) |
-| `WORKFLOW_WEAVER_TOKEN` | API token override (used directly by CLI) |
-| `WORKFLOW_WEAVER_API_URL` | API base URL override |
+| `WORKFLOW_WEAVER_REFRESH_TOKEN` | Refresh token (read by CLI and MCP automatically) |
+| `WORKFLOW_WEAVER_SUPABASE_URL` | Supabase project URL (required by MCP) |
+| `WORKFLOW_WEAVER_SUPABASE_KEY` | Supabase anon key (required by MCP) |
 | `WORKFLOW_WEAVER_CLI` | Override CLI binary path (default: `workflow-weaver`) |
 | `WORKFLOW_WEAVER_MCP` | Override MCP binary path (default: `workflow-weaver-mcp`) |

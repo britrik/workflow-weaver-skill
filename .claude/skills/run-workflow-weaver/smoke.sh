@@ -5,15 +5,21 @@ CLI="${WORKFLOW_WEAVER_CLI:-workflow-weaver}"
 MCP="${WORKFLOW_WEAVER_MCP:-workflow-weaver-mcp}"
 
 ERRORS=0
+TEMP_FILES=()
 
 pass() { echo "  ✅ $1"; }
 fail() { echo "  ❌ $1"; ERRORS=$((ERRORS + 1)); }
 skip() { echo "  ⏭️  $1"; }
 
-# Cleanup trap for background MCP processes
+# Cleanup trap for background MCP processes and temp files
 cleanup() {
-  jobs -p | xargs -r kill 2>/dev/null || true
+  local pids
+  pids=$(jobs -p 2>/dev/null) || true
+  if [ -n "$pids" ]; then
+    kill $pids 2>/dev/null || true
+  fi
   wait 2>/dev/null || true
+  rm -f "${TEMP_FILES[@]}" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -36,11 +42,9 @@ fi
 # ── Test 3: Unauthenticated auth status returns clear error ──
 echo "Test 3: Unauthenticated auth status --json"
 if command -v "$CLI" >/dev/null 2>&1; then
-  # Use a temp file to capture result from the subshell (avoids set -e + && || gotchas)
-  AUTH_RESULT=$(mktemp)
+  AUTH_RESULT=$(mktemp) && TEMP_FILES+=("$AUTH_RESULT")
   (
-    unset WORKFLOW_WEAVER_TOKEN 2>/dev/null || true
-    # Explicitly capture both success and failure paths
+    unset WORKFLOW_WEAVER_REFRESH_TOKEN 2>/dev/null || true
     if OUTPUT=$($CLI auth status --json 2>&1); then
       printf 'UNEXPECTED_SUCCESS\t%s\n' "$OUTPUT" > "$AUTH_RESULT"
     else
@@ -50,7 +54,6 @@ if command -v "$CLI" >/dev/null 2>&1; then
   )
 
   if grep -q '^EXPECTED_ERROR' "$AUTH_RESULT" 2>/dev/null; then
-    # Check that error message mentions auth-related keywords
     AUTH_OUTPUT=$(cut -f3- "$AUTH_RESULT")
     if echo "$AUTH_OUTPUT" | grep -qiE 'AUTH_FAILED|not authenticated|token|unauthorized|missing|invalid'; then
       pass "Got expected auth error"
@@ -61,7 +64,6 @@ if command -v "$CLI" >/dev/null 2>&1; then
     AUTH_OUTPUT=$(cut -f2- "$AUTH_RESULT")
     fail "Expected error for unauthenticated request, got success: $AUTH_OUTPUT"
   fi
-  rm -f "$AUTH_RESULT"
 else
   skip "CLI not found"
 fi
@@ -77,9 +79,9 @@ fi
 # ── Test 5: MCP without token exits cleanly ──
 echo "Test 5: MCP without token"
 if command -v "$MCP" >/dev/null 2>&1; then
-  MCP_RESULT=$(mktemp)
+  MCP_RESULT=$(mktemp) && TEMP_FILES+=("$MCP_RESULT")
   (
-    unset WORKFLOW_WEAVER_TOKEN 2>/dev/null || true
+    unset WORKFLOW_WEAVER_REFRESH_TOKEN 2>/dev/null || true
     if MCP_OUTPUT=$($MCP 2>&1); then
       printf 'UNEXPECTED_SUCCESS\t%s\n' "$MCP_OUTPUT" > "$MCP_RESULT"
     else
@@ -99,7 +101,6 @@ if command -v "$MCP" >/dev/null 2>&1; then
     MCP_OUTPUT=$(cut -f2- "$MCP_RESULT")
     fail "MCP should exit with error when token is missing, but succeeded: $MCP_OUTPUT"
   fi
-  rm -f "$MCP_RESULT"
 else
   skip "MCP not found"
 fi
@@ -107,8 +108,8 @@ fi
 # ── Test 6: MCP protocol handshake with invalid token ──
 echo "Test 6: MCP protocol handshake (invalid token)"
 if command -v "$MCP" >/dev/null 2>&1; then
-  RESULT_FILE=$(mktemp)
-  export WORKFLOW_WEAVER_TOKEN="smoke-test-invalid-token"
+  RESULT_FILE=$(mktemp) && TEMP_FILES+=("$RESULT_FILE")
+  export WORKFLOW_WEAVER_REFRESH_TOKEN="smoke-test-invalid-token"
 
   # Feed JSON-RPC initialize + initialized notification to MCP, capture output
   {
@@ -120,7 +121,7 @@ if command -v "$MCP" >/dev/null 2>&1; then
 
   # Poll for up to 5 seconds
   MCP_ALIVE=true
-  for _ in $(seq 1 50); do
+  for ((_i=1; _i<=50; _i++)); do
     if ! kill -0 "$MCP_PID" 2>/dev/null; then
       MCP_ALIVE=false
       break
@@ -143,39 +144,54 @@ if command -v "$MCP" >/dev/null 2>&1; then
   else
     pass "MCP processed protocol input (may have exited as expected)"
   fi
-  rm -f "$RESULT_FILE"
+  # Clean up leaked env var so tests 7-8 skip correctly
+  unset WORKFLOW_WEAVER_REFRESH_TOKEN 2>/dev/null || true
 else
   skip "MCP not found"
 fi
 
 # ── Test 7: Live auth status (token required) ──
 echo "Test 7: Live auth status"
-if [ -n "${WORKFLOW_WEAVER_REFRESH_TOKEN:-}" ]; then
+if [ -n "${WORKFLOW_WEAVER_REFRESH_TOKEN:-}" ] && [ -n "${WORKFLOW_WEAVER_SUPABASE_URL:-}" ]; then
+  AUTH_LIVE_RESULT=$(mktemp) && TEMP_FILES+=("$AUTH_LIVE_RESULT")
   (
-    export WORKFLOW_WEAVER_TOKEN="$WORKFLOW_WEAVER_REFRESH_TOKEN"
     if AUTH_OUTPUT=$($CLI auth status --json 2>&1); then
-      pass "Live auth status returned successfully"
+      printf 'SUCCESS\n' > "$AUTH_LIVE_RESULT"
     else
-      fail "Live auth status failed: $AUTH_OUTPUT"
+      printf 'FAIL\t%s\n' "$AUTH_OUTPUT" > "$AUTH_LIVE_RESULT"
     fi
   )
+
+  if grep -q '^SUCCESS' "$AUTH_LIVE_RESULT" 2>/dev/null; then
+    pass "Live auth status returned successfully"
+  else
+    AUTH_LIVE_OUTPUT=$(cut -f2- "$AUTH_LIVE_RESULT")
+    fail "Live auth status failed: $AUTH_LIVE_OUTPUT"
+  fi
 else
-  skip "No WORKFLOW_WEAVER_REFRESH_TOKEN set"
+  skip "No WORKFLOW_WEAVER_REFRESH_TOKEN or WORKFLOW_WEAVER_SUPABASE_URL set"
 fi
 
 # ── Test 8: Live billing status (token required) ──
 echo "Test 8: Live billing status"
-if [ -n "${WORKFLOW_WEAVER_REFRESH_TOKEN:-}" ]; then
+if [ -n "${WORKFLOW_WEAVER_REFRESH_TOKEN:-}" ] && [ -n "${WORKFLOW_WEAVER_SUPABASE_URL:-}" ]; then
+  BILLING_LIVE_RESULT=$(mktemp) && TEMP_FILES+=("$BILLING_LIVE_RESULT")
   (
-    export WORKFLOW_WEAVER_TOKEN="$WORKFLOW_WEAVER_REFRESH_TOKEN"
     if BILLING_OUTPUT=$($CLI billing status --json 2>&1); then
-      pass "Live billing status returned successfully"
+      printf 'SUCCESS\n' > "$BILLING_LIVE_RESULT"
     else
-      fail "Live billing status failed: $BILLING_OUTPUT"
+      printf 'FAIL\t%s\n' "$BILLING_OUTPUT" > "$BILLING_LIVE_RESULT"
     fi
   )
+
+  if grep -q '^SUCCESS' "$BILLING_LIVE_RESULT" 2>/dev/null; then
+    pass "Live billing status returned successfully"
+  else
+    BILLING_LIVE_OUTPUT=$(cut -f2- "$BILLING_LIVE_RESULT")
+    fail "Live billing status failed: $BILLING_LIVE_OUTPUT"
+  fi
 else
-  skip "No WORKFLOW_WEAVER_REFRESH_TOKEN set"
+  skip "No WORKFLOW_WEAVER_REFRESH_TOKEN or WORKFLOW_WEAVER_SUPABASE_URL set"
 fi
 
 # ── Summary ──
