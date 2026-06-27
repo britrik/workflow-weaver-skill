@@ -1,6 +1,6 @@
 ---
 name: run-workflow-weaver
-description: Run, drive, and interact with workflow-weaver CLI and MCP server agentically. Use when asked to start workflow-weaver, use the CLI, run the MCP server, generate a workflow, create a project, test the CLI, or export a workflow diagram.
+description: "Generate workflows, process diagrams, and step-by-step documentation from API specs, OpenAPI files, and code snippets. Drive via CLI or 23 MCP tools. Export to Markdown, SVG, PNG, PDF, or JSON. Use when asked to create workflow documentation, generate API diagrams, build process guides, or turn code into visual workflows."
 ---
 
 # run-workflow-weaver
