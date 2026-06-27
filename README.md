@@ -1,6 +1,6 @@
 # run-workflow-weaver
 
-**Turn API docs into workflows and diagrams.** This Clawhub skill drives the [workflow-weaver](https://www.npmjs.com/package/workflow-weaver) CLI and MCP server, giving AI agents the ability to generate process documentation, visual diagrams, and step-by-step guides from API specifications, OpenAPI files, and code snippets.
+**Turn API docs into workflows and diagrams.** This Clawhub skill drives [Workflow Weaver](https://weaver.vibingfun.com) via its [npm CLI](https://www.npmjs.com/package/workflow-weaver) and MCP server, giving AI agents the ability to generate process documentation, visual diagrams, and step-by-step guides from API specifications, OpenAPI files, and code snippets.
 
 ## What Can It Do?
 
@@ -19,6 +19,12 @@ If you have:
 - A need to version and share workflow documentation
 
 This skill gives your agent the tools to do it headlessly — no browser, no UI, just subprocess calls or MCP tool invocations.
+
+## What is Workflow Weaver?
+
+[Workflow Weaver](https://weaver.vibingfun.com) is a web app that generates workflows and diagrams from API specifications. This skill lets your agent drive it programmatically via:
+- **CLI** (`workflow-weaver`) — subprocess calls with `--json` output
+- **MCP server** (`@workflow-weaver/mcp`) — 23 tools for Claude, Cursor, Kiro, etc.
 
 ## Installation
 
