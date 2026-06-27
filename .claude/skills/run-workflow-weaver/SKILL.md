@@ -1,6 +1,24 @@
 ---
 name: run-workflow-weaver
 description: "Generate workflows, process diagrams, and step-by-step documentation from API specs, OpenAPI files, and code snippets. Drive via CLI or 23 MCP tools. Export to Markdown, SVG, PNG, PDF, or JSON. Use when asked to create workflow documentation, generate API diagrams, build process guides, or turn code into visual workflows."
+tags:
+  - api-documentation
+  - openapi
+  - diagram
+  - workflow
+  - mcp
+  - process-documentation
+  - generator
+  - markdown
+  - svg
+  - pdf
+  - png
+  - json
+  - cli
+  - agent
+  - byok
+  - dev-tools
+  - visualization
 ---
 
 # run-workflow-weaver
