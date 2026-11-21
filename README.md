@@ -44,7 +44,7 @@ Copy `.claude/skills/run-workflow-weaver/` into your agent's skills directory.
 - jq (for JSON parsing in shell examples)
 - Global CLI + MCP server:
   ```bash
-  npm install -g workflow-weaver @workflow-weaver/mcp
+  npm install -g workflow-weaver@0.1.0 @workflow-weaver/mcp@0.1.0
   ```
 
 ## Quick Start
@@ -53,8 +53,8 @@ Copy `.claude/skills/run-workflow-weaver/` into your agent's skills directory.
 # 1. Authenticate (interactive, one-time)
 workflow-weaver auth login --email you@example.com
 
-# 2. Export your token for agent use
-export WORKFLOW_WEAVER_REFRESH_TOKEN=$(node -e "process.stdout.write(require(require('os').homedir()+'/.workflow-weaver/config.json').refreshToken)")
+# 2. The CLI now reads its token from ~/.workflow-weaver/config.json.
+#    For CI, set WORKFLOW_WEAVER_REFRESH_TOKEN from your secret store instead.
 
 # 3. Create a project
 PROJECT=$(workflow-weaver projects create \
@@ -93,8 +93,8 @@ Works with Claude Desktop, Cursor, Kiro, or any MCP host:
 {
   "mcpServers": {
     "workflow-weaver": {
-      "command": "npx",
-      "args": ["@workflow-weaver/mcp@latest"],
+      "command": "workflow-weaver-mcp",
+      "args": [],
       "env": {
         "WORKFLOW_WEAVER_REFRESH_TOKEN": "***",
         "WORKFLOW_WEAVER_SUPABASE_URL": "***",
