@@ -1,6 +1,6 @@
 ---
 name: run-workflow-weaver
-description: "Drives the hosted Workflow Weaver service (weaver.vibingfun.com) through its workflow-weaver CLI and MCP server: create projects, upload API doc sources (OpenAPI specs, endpoint lists, code snippets), generate step-by-step workflow guides on the service, and export them as Markdown, SVG, PNG, PDF or JSON. Generation happens server-side and needs a Workflow Weaver account. Bundled smoke.sh only checks that the CLI and MCP server are installed and authenticated. Use when the user asks to use Workflow Weaver or to turn their API docs into a Workflow Weaver guide; not for general diagramming or documentation requests."
+description: "Drives the hosted Workflow Weaver service (weaver.vibingfun.com) through its workflow-weaver CLI and MCP server: create projects, upload API doc sources (OpenAPI specs, endpoint lists, code snippets), generate step-by-step workflow guides on the service, and export them as Markdown, SVG, PNG, PDF or JSON. Generation happens server-side and needs a Workflow Weaver account. Bundled smoke.sh checks that the CLI and MCP server are installed and authenticated and, when a token is set, reads the account's billing status (plan and quota, read-only). Use when the user asks to use Workflow Weaver or to turn their API docs into a Workflow Weaver guide; not for general diagramming or documentation requests."
 tags:
   - api-documentation
   - openapi
@@ -258,7 +258,7 @@ Run offline checks (no token required):
 bash .claude/skills/run-workflow-weaver/smoke.sh
 ```
 
-Run with live credentials:
+Run with live credentials. This adds two read-only account calls, `auth status` and `billing status` (plan, usage and quota); nothing is created or changed:
 
 ```bash
 WORKFLOW_WEAVER_REFRESH_TOKEN=*** bash .claude/skills/run-workflow-weaver/smoke.sh

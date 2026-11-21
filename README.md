@@ -82,7 +82,7 @@ workflow-weaver export "$PROJECT_ID" "$VERSION_ID" --format md
 | File | Purpose |
 |------|---------|
 | `.claude/skills/run-workflow-weaver/SKILL.md` | Agent-facing instructions, 23 MCP tools reference, security rules |
-| `.claude/skills/run-workflow-weaver/smoke.sh` | 9-test validation script (offline + live) |
+| `.claude/skills/run-workflow-weaver/smoke.sh` | 9-test validation script (offline, plus read-only live auth and billing-status checks when a token is set) |
 | `README.md` | This file — installation and quick start |
 
 ## MCP Server (23 Tools)
