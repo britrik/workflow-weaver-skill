@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5 — 2026-11-21
+
+### Fixed
+- smoke.sh test 6 passes its invalid token only to the MCP process, so a real `WORKFLOW_WEAVER_REFRESH_TOKEN` is no longer overwritten and unset, and the live auth and billing checks (tests 7-8) run instead of skipping
+- Removed the empty `autoApprove` key from the MCP config example
+
 ## 0.1.4 — 2026-11-21
 
 ### Security

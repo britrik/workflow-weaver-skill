@@ -117,14 +117,13 @@ fi
 echo "Test 6: MCP protocol handshake (invalid token)"
 if command -v "$MCP" >/dev/null 2>&1; then
   RESULT_FILE=$(mktemp) && TEMP_FILES+=("$RESULT_FILE")
-  export WORKFLOW_WEAVER_REFRESH_TOKEN="smoke-test-invalid-token"
 
   # Feed JSON-RPC initialize + initialized notification to MCP, capture output
   {
     echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke-test","version":"1.0.0"}}}'
     sleep 0.5
     echo '{"jsonrpc":"2.0","method":"notifications/initialized"}'
-  } | $MCP > "$RESULT_FILE" 2>&1 &
+  } | WORKFLOW_WEAVER_REFRESH_TOKEN="smoke-test-invalid-token" $MCP > "$RESULT_FILE" 2>&1 &
   MCP_PID=$!
 
   # Poll for up to 5 seconds
@@ -147,9 +146,6 @@ if command -v "$MCP" >/dev/null 2>&1; then
     kill -0 "$MCP_PID" 2>/dev/null && kill -9 "$MCP_PID" 2>/dev/null || true
     wait "$MCP_PID" 2>/dev/null || true
   fi
-
-  # Unset leaked env var so tests 7-8 skip correctly
-  unset WORKFLOW_WEAVER_REFRESH_TOKEN 2>/dev/null || true
 
   # Evaluate: must contain a valid JSON-RPC response or a clear auth error
   if [ -s "$RESULT_FILE" ] && grep -q '"jsonrpc":"2.0"' "$RESULT_FILE" && grep -q '"id":1' "$RESULT_FILE"; then
