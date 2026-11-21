@@ -9,7 +9,8 @@ TEMP_FILES=()
 
 pass() { echo "  ✅ $1"; }
 fail() { echo "  ❌ $1"; ERRORS=$((ERRORS + 1)); }
-skip() { echo "  ⏭️  $1"; }
+SKIPS=0
+skip() { echo "  ⏭️  $1"; SKIPS=$((SKIPS + 1)); }
 
 # Cleanup trap for background MCP processes and temp files
 cleanup() {
@@ -150,7 +151,7 @@ if command -v "$MCP" >/dev/null 2>&1; then
   # Evaluate: must contain a valid JSON-RPC response or a clear auth error
   if [ -s "$RESULT_FILE" ] && grep -q '"jsonrpc":"2.0"' "$RESULT_FILE" && grep -q '"id":1' "$RESULT_FILE"; then
     pass "MCP responded to protocol handshake with valid initialize response"
-  elif [ -s "$RESULT_FILE" ] && grep -qiE 'AUTH_FAILED|not authenticated|token|unauthorized|missing|invalid|error' "$RESULT_FILE"; then
+  elif [ -s "$RESULT_FILE" ] && grep -qiE 'AUTH_FAILED|not authenticated|token|unauthorized|missing|invalid' "$RESULT_FILE"; then
     pass "MCP rejected invalid token (expected auth error)"
   else
     fail "MCP did not respond with valid JSON-RPC or clear error"
@@ -206,7 +207,11 @@ fi
 # ── Summary ──
 echo ""
 if [ "$ERRORS" -eq 0 ]; then
-  echo "=== ✅ All checks passed ==="
+  if [ "$SKIPS" -gt 0 ]; then
+    echo "=== ✅ All run checks passed ($SKIPS skipped) ==="
+  else
+    echo "=== ✅ All checks passed ==="
+  fi
   exit 0
 else
   echo "=== ❌ $ERRORS check(s) failed ==="
