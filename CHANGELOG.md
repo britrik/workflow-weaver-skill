@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4 — 2026-11-21
+
+### Security
+- Description and docs now state that smoke.sh, with a token set, also reads the account's billing status (read-only)
+
 ## 0.1.3 — 2026-11-21
 
 ### Security
