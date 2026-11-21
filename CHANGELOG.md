@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.3 — 2026-11-21
+
+### Security
+- Description now says what the skill does: drives the hosted Workflow Weaver service, with smoke.sh as an install/auth check only; trigger narrowed to explicit Workflow Weaver requests
+- Removed the command that printed the refresh token to stdout
+- Pinned `workflow-weaver@0.1.0` and `@workflow-weaver/mcp@0.1.0`; MCP examples use the pinned binary instead of `npx ...@latest`
+- MCP examples use user-level config files, Cursor uses `${env:...}` references, and plaintext-config risks are documented
+- Agents must confirm destructive, quota-using and share-link actions with the user; share links are documented as public
+
 ## 0.1.0 — 2026-06-27
 
 ### Added
