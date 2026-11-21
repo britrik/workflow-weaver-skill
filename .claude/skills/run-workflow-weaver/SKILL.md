@@ -203,8 +203,7 @@ Edit `~/.kiro/settings/mcp.json` (user-level, so it is never committed):
         "WORKFLOW_WEAVER_SUPABASE_URL": "***",
         "WORKFLOW_WEAVER_SUPABASE_KEY": "***"
       },
-      "disabled": false,
-      "autoApprove": []
+      "disabled": false
     }
   }
 }
